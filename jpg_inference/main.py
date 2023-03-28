@@ -45,7 +45,10 @@ def make_save_path(src_dir, model_path):
     dataset_name = os.path.basename(src_dir)
     model_name = os.path.basename(model_path)
     model_name = re.sub(".tflite", "", model_name)
-    save_path = f"/home/walter/nas_cv/walter_stuff/git/modular-end2end-testing/od_eval/result/{dataset_name}_{model_name}"
+    cur_dir = os.getcwd()
+    parent_dir = os.path.abspath(os.path.join(cur_dir, os.pardir))
+    result_path = os.path.join(parent_dir, "results")
+    save_path = f"{result_path}/{dataset_name}_{model_name}"
     os.makedirs(save_path, exist_ok=True)
     return save_path
 

@@ -1,22 +1,20 @@
-import numpy as np
-from PIL import Image
+import os 
+import re 
+
+def make_save_path(src_dir, model_path):
+    dataset_name = os.path.basename(src_dir)
+    model_name = os.path.basename(model_path)
+    model_name = re.sub(".tflite", "", model_name)
+    cur_dir = os.getcwd()
+    parent_dir = os.path.abspath(os.path.join(cur_dir, os.pardir))
+    result_path = os.path.join(parent_dir, "results")
+    save_path = f"{result_path}/{dataset_name}_{model_name}"
+    os.makedirs(save_path, exist_ok=True)
+    return save_path
 
 
-# path = "/home/walter/nas_cv/walter_stuff/modular_dataset/from_scratch/training/images_default/denser_inside_skip10/1669233796150-modular-coral-v1-akl-0017:192.168.178.207.jpg"
-# img_a = Image.open(path)
-# crop = img_a.crop([20, 20, 300, 300])
-# crop_array = np.array(crop)
-# crop_img = Image.fromarray(crop_array)
-# print(crop_array.shape)
-# crop.show()
+bayer_dir = "/home/walter/nas_cv/walter_stuff/modular_dataset/sonae_test/bayer/testset"
+image_dir = "/home/walter/nas_cv/walter_stuff/modular_dataset/sonae_test/stack_bayer_white_balance/testset"
 
-
-
-bg_img = Image.new('RGB', (960, 540))
-bg_array = np.array(bg_img)
-print(bg_array.shape)
-bg_img.show()
-# img = Image.fromarray(bg_image)
-# image_array = np.array(img)
-# print(image_array.shape)
-# img.show()
+model_path = "/home/walter/nas_cv/walter_stuff/git/yolov5-master/yolo_n_modular/yolo5_nano_448/weights/no_nms_edgetpu.tflite"
+print(make_save_path(image_dir,model_path))
