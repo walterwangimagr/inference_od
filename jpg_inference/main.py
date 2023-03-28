@@ -11,6 +11,8 @@ from data_util import padded_resize
 import glob
 import os
 import re
+import pprint
+import platform
 
 
 def parse_objs(objs):
@@ -54,59 +56,117 @@ def make_save_path(src_dir, model_path):
     return save_path
 
 
-image_dir = "/home/walter/nas_cv/walter_stuff/modular_dataset/sonae_test/stack_bayer_white_balance/testset"
+
+
+
+
+
+image_dir = "/home/walter/nas_cv/walter_stuff/modular_dataset/sonae_test/stack_bayer_white_balance/testset/"
 model_path = "/home/walter/nas_cv/walter_stuff/git/yolov5-master/yolo_n_modular/yolo5_nano_448/weights/no_nms_edgetpu.tflite"
 
 
 save_path = make_save_path(image_dir, model_path)
 
-
 image_files = glob.glob(f"{image_dir}/*.jpg")
-for image_path in image_files:
-    image = Image.open(image_path)
-    resized_image = padded_resize(image, 448, 448)
-    image_array = np.array(image, dtype=np.uint8)
+img_path = os.path.join(image_dir, "1668743387444-modular-coral-v1-akl-0101:169.254.247.0.jpg")
 
-objects_count = 0
-total_images_count = len(bayer_files)
-for bayer_file in bayer_files:
-    bayer_data = np.fromfile(bayer_file, np.uint8).reshape((1080, 1920, 1))
-    img = bayer_to_rgb(bayer_file)
-    # img.show()
+interpreter = edgetpu.make_interpreter(model_path)
+interpreter.allocate_tensors()
+input_detail = interpreter.get_input_details()[0]
+output_detail = interpreter.get_output_details()[0]
+print(input_detail)
+print(output_detail)
 
-    interpreter = edgetpu.make_interpreter(model_path)
-    interpreter.allocate_tensors()
-    common.set_input(interpreter, bayer_data)
-    interpreter.invoke()
-    objs = detect.get_objects(
-        interpreter,
-        score_threshold=0.5,
-        image_scale=(2, 2))
+
+image = Image.open(img_path)
+resized_image = padded_resize(image, 448, 448)
+resized_image.show()
+image_array = np.array(resized_image, dtype=np.uint8)
+
+#de-scale
+scale, zero_point = input_detail['quantization']
+image_array = (image_array / scale - zero_point).astype(np.uint8)
+
+
+common.set_input(interpreter, image_array)
+interpreter.invoke()
+y = interpreter.get_tensor(output_detail['index'])
+scale, zero_point = output_detail['quantization']
+y = (y.astype(np.float32) - zero_point) * scale
+y[..., :4] *= [448, 448, 448, 448]
+print(y)
+    
+    # output = interpreter.tensor(interpreter.get_output_details()[0]['index'])()
+    
+    # print(output.shape)
+    # pprint.pprint(output_detail)
+    # pprint.pprint(type(value))
+    # objs = detect.get_objects(
+    #     interpreter,
+    #     score_threshold=0.5)
+    
+    # detections = parse_objs(objs)
+
+    # for detection in detections:
+    #     xmin = detection[0]
+    #     ymin = detection[1]
+    #     xmax = detection[2]
+    #     ymax = detection[3]
+    #     confidence = detection[4]
+    #     id = detection[5]   
+    #     if id == 0:
+    #         ImageDraw.Draw(resized_image).rectangle(
+    #             [(xmin, ymin), (xmax, ymax)], outline='green')
+    #     if id == 1:
+    #         ImageDraw.Draw(resized_image).rectangle(
+    #             [(xmin, ymin), (xmax, ymax)], outline='red')
+    #     if id == 2:
+    #         ImageDraw.Draw(resized_image).rectangle(
+    #             [(xmin, ymin), (xmax, ymax)], outline='yellow')
+    
+    # resized_image.show()
     
 
-    detections = parse_objs(objs)
+# objects_count = 0
+# total_images_count = len(bayer_files)
+# for bayer_file in bayer_files:
+#     bayer_data = np.fromfile(bayer_file, np.uint8).reshape((1080, 1920, 1))
+#     img = bayer_to_rgb(bayer_file)
+#     # img.show()
+
+#     interpreter = edgetpu.make_interpreter(model_path)
+#     interpreter.allocate_tensors()
+#     common.set_input(interpreter, bayer_data)
+#     interpreter.invoke()
+#     objs = detect.get_objects(
+#         interpreter,
+#         score_threshold=0.5,
+#         image_scale=(2, 2))
     
-    for detection in detections:
-        xmin = detection[0]
-        ymin = detection[1]
-        xmax = detection[2]
-        ymax = detection[3]
-        confidence = detection[4]
-        id = detection[5]   
-        if id == 0:
-            ImageDraw.Draw(img).rectangle(
-                [(xmin, ymin), (xmax, ymax)], outline='green')
-        if id == 1:
-            ImageDraw.Draw(img).rectangle(
-                [(xmin, ymin), (xmax, ymax)], outline='red')
-        if id == 2:
-            ImageDraw.Draw(img).rectangle(
-                [(xmin, ymin), (xmax, ymax)], outline='yellow')
 
-    base_name = os.path.basename(bayer_file)
-    save_name = re.sub(".bayer_8", ".jpg", base_name)
-    img.save(os.path.join(save_path, save_name))
-    if len(detections) > 0:
-        objects_count += 1
+#     detections = parse_objs(objs)
+    
+#     for detection in detections:
+#         xmin = detection[0]
+#         ymin = detection[1]
+#         xmax = detection[2]
+#         ymax = detection[3]
+#         confidence = detection[4]
+#         id = detection[5]   
+#         if id == 0:
+#             ImageDraw.Draw(img).rectangle(
+#                 [(xmin, ymin), (xmax, ymax)], outline='green')
+#         if id == 1:
+#             ImageDraw.Draw(img).rectangle(
+#                 [(xmin, ymin), (xmax, ymax)], outline='red')
+#         if id == 2:
+#             ImageDraw.Draw(img).rectangle(
+#                 [(xmin, ymin), (xmax, ymax)], outline='yellow')
 
-print(f"found {objects_count} objects in total {total_images_count} images")
+#     base_name = os.path.basename(bayer_file)
+#     save_name = re.sub(".bayer_8", ".jpg", base_name)
+#     img.save(os.path.join(save_path, save_name))
+#     if len(detections) > 0:
+#         objects_count += 1
+
+# print(f"found {objects_count} objects in total {total_images_count} images")

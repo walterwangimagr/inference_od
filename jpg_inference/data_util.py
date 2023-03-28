@@ -1,45 +1,39 @@
 from PIL import Image
 import math
 import time
+import cv2
+import numpy as np
 
-def padded_resize(image, target_width, target_height, fill_color=(0, 0, 0)):
-    """
-    Resizes an image to fit within the given target dimensions while maintaining aspect ratio, and adds padding
-    to fill any remaining empty space.
-    
-    Parameters:
-    image (PIL.Image): The image to resize.
-    target_width (int): The desired width of the target container or display area.
-    target_height (int): The desired height of the target container or display area.
-    fill_color (tuple): The RGB color tuple to use for the padding (default is white).
-    
-    Returns:
-    PIL.Image: The resized and padded image.
-    """
-    original_width, original_height = image.size
-    
-    # Determine the scaling factor for each dimension
-    width_ratio = target_width / original_width
-    height_ratio = target_height / original_height
-    
-    # Use the smaller scaling factor to ensure that the entire image fits within the target dimensions
-    scale_factor = min(width_ratio, height_ratio)
-    
-    # Resize the image while maintaining aspect ratio
-    new_width = math.floor(original_width * scale_factor)
-    new_height = math.floor(original_height * scale_factor)
-    resized_image = image.resize((new_width, new_height))
-    
-    # Add padding to fill any remaining empty space
-    padding_width = target_width - new_width
-    padding_height = target_height - new_height
-    
-    padding_left = math.floor(padding_width / 2)
-    padding_top = math.floor(padding_height / 2)
-    
-    padded_image = Image.new(image.mode, (target_width, target_height), fill_color)
-    padded_image.paste(resized_image, (padding_left, padding_top))
-    
-    return padded_image
+def letterbox(im, new_shape=(640, 640), color=(114, 114, 114), auto=True, scaleFill=False, scaleup=True, stride=32):
+    # Resize and pad image while meeting stride-multiple constraints
+    shape = im.shape[:2]  # current shape [height, width]
+    if isinstance(new_shape, int):
+        new_shape = (new_shape, new_shape)
+
+    # Scale ratio (new / old)
+    r = min(new_shape[0] / shape[0], new_shape[1] / shape[1])
+    if not scaleup:  # only scale down, do not scale up (for better val mAP)
+        r = min(r, 1.0)
+
+    # Compute padding
+    ratio = r, r  # width, height ratios
+    new_unpad = int(round(shape[1] * r)), int(round(shape[0] * r))
+    dw, dh = new_shape[1] - new_unpad[0], new_shape[0] - new_unpad[1]  # wh padding
+    if auto:  # minimum rectangle
+        dw, dh = np.mod(dw, stride), np.mod(dh, stride)  # wh padding
+    elif scaleFill:  # stretch
+        dw, dh = 0.0, 0.0
+        new_unpad = (new_shape[1], new_shape[0])
+        ratio = new_shape[1] / shape[1], new_shape[0] / shape[0]  # width, height ratios
+
+    dw /= 2  # divide padding into 2 sides
+    dh /= 2
+
+    if shape[::-1] != new_unpad:  # resize
+        im = cv2.resize(im, new_unpad, interpolation=cv2.INTER_LINEAR)
+    top, bottom = int(round(dh - 0.1)), int(round(dh + 0.1))
+    left, right = int(round(dw - 0.1)), int(round(dw + 0.1))
+    im = cv2.copyMakeBorder(im, top, bottom, left, right, cv2.BORDER_CONSTANT, value=color)  # add border
+    return im, ratio, (dw, dh)
 
 
