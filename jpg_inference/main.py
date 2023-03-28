@@ -7,6 +7,7 @@ from pycoral.adapters import common
 from pycoral.adapters import detect
 from bayer_to_RGB import bayer_to_rgb
 from pycoral.adapters import classify
+from data_util import padded_resize
 import glob
 import os
 import re
@@ -53,18 +54,18 @@ def make_save_path(src_dir, model_path):
     return save_path
 
 
-bayer_dir = "/home/walter/nas_cv/walter_stuff/modular_dataset/sonae_test/bayer/testset"
 image_dir = "/home/walter/nas_cv/walter_stuff/modular_dataset/sonae_test/stack_bayer_white_balance/testset"
-
 model_path = "/home/walter/nas_cv/walter_stuff/git/yolov5-master/yolo_n_modular/yolo5_nano_448/weights/no_nms_edgetpu.tflite"
+
 
 save_path = make_save_path(image_dir, model_path)
 
 
-
-
-
-bayer_files = glob.glob(f"{bayer_dir}/*.bayer_8")
+image_files = glob.glob(f"{image_dir}/*.jpg")
+for image_path in image_files:
+    image = Image.open(image_path)
+    resized_image = padded_resize(image, 448, 448)
+    image_array = np.array(image, dtype=np.uint8)
 
 objects_count = 0
 total_images_count = len(bayer_files)
