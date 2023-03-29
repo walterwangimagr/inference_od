@@ -13,33 +13,6 @@ import os
 import re
 import torch
 
-def parse_objs(objs):
-    """parse objs from 
-    [Object(id=0, score=0.62890625, bbox=BBox(xmin=800, ymin=74, xmax=869, ymax=222))]
-    to detections format 
-    [xmin, ymin, xmax, ymax, score]
-
-    Args:
-        objs (list): list of objs
-
-    Returns:
-        np.array: shape(n, 5), n is the num of detecions, 5 is [xmin, ymin, xmax, ymax, score], if none, return an np.empty()
-    """
-    if len(objs) > 0:
-        detections = []
-        for obj in objs:
-            xmin = obj.bbox.xmin
-            ymin = obj.bbox.ymin
-            xmax = obj.bbox.xmax
-            ymax = obj.bbox.ymax
-            score = obj.score
-            id = obj.id
-            detection = [xmin, ymin, xmax, ymax, score, id]
-            detections.append(detection)
-
-        return np.array(detections)
-    else:
-        return np.empty((0, 5))
 
 
 def make_save_path(src_dir, model_path):
@@ -65,38 +38,43 @@ img_path = os.path.join(
     image_dir, "1668743387444-modular-coral-v1-akl-0101:169.254.247.0.jpg")
 
 
-'''
-Image preprocessing
-'''
-im = cv2.imread(img_path)
+def load_image(img_path, img_size=448):
+    '''
+    Load Image and preprocessing, resize, pad, cvt color
 
-# original height and width
-o_height, o_width = im.shape[:2]
-# the edgetpu model require image to be a specify size
-r_im_size = 448
-ratio = r_im_size / max(o_height, o_width)
-# resize image
-if ratio != 1:
-    # use INTER_LINEAR to scale up and use INTER_AREA to scale down
-    interp = cv2.INTER_LINEAR if (ratio > 1) else cv2.INTER_AREA
-    im = cv2.resize(im, (int(o_width * ratio),
-                    int(o_height * ratio)), interpolation=interp)
+    return im: np_array, im_to_draw: cv2 img
+    '''
+    im = cv2.imread(img_path)
 
-im, ratio, pad = pad_image(im, (448, 448), auto=False, scaleup=False)
-# to draw bbox and show
-im_resize_pad = im
+    # original height and width
+    o_height, o_width = im.shape[:2]
+    # the edgetpu model require image to be a specify size
+    r_im_size = img_size
+    ratio = r_im_size / max(o_height, o_width)
+    # resize image
+    if ratio != 1:
+        # use INTER_LINEAR to scale up and use INTER_AREA to scale down
+        interp = cv2.INTER_LINEAR if (ratio > 1) else cv2.INTER_AREA
+        im = cv2.resize(im, (int(o_width * ratio),
+                        int(o_height * ratio)), interpolation=interp)
 
-
-im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
-
-# turn cv2 image to np array and normalized
-im_array = np.asarray(im, dtype=np.float32)
-im_array /= 255
-im_array = np.expand_dims(im_array, axis=0)
-im_array = np.ascontiguousarray(im_array)
+    im, ratio, pad = pad_image(im, (img_size, img_size), auto=False, scaleup=False)
+    # to draw bbox and show
+    im_to_draw = im
 
 
-print(im_array.shape)
+    im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
+
+    # turn cv2 image to np array and normalized
+    im_array = np.asarray(im, dtype=np.float32)
+    im_array /= 255
+    im_array = np.expand_dims(im_array, axis=0)
+    im_array = np.ascontiguousarray(im_array)
+
+    return im, im_to_draw
+
+
+
 
 
 '''Inference'''
