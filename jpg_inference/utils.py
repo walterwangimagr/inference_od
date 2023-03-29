@@ -173,3 +173,22 @@ def non_max_suppression(prediction,
         
 
     return output
+
+
+def clip_coords(boxes, shape):
+    # np.array (faster grouped)
+    boxes[:, [0, 2]] = boxes[:, [0, 2]].clip(0, shape[1])  # x1, x2
+    boxes[:, [1, 3]] = boxes[:, [1, 3]].clip(0, shape[0])  # y1, y2
+
+
+def scale_coords(old_shape, coords, new_shape):
+    # Rescale coords (xyxy) from img1_shape to img0_shape
+    # calculate from img0_shape
+    gain = min(old_shape[0] / new_shape[0], old_shape[1] / new_shape[1])  # gain  = old / new
+    pad = (old_shape[1] - new_shape[1] * gain) / 2, (old_shape[0] - new_shape[0] * gain) / 2  # wh padding
+    
+    coords[:, [0, 2]] -= pad[0]  # x padding
+    coords[:, [1, 3]] -= pad[1]  # y padding
+    coords[:, :4] /= gain
+    clip_coords(coords, new_shape)
+    return coords
