@@ -120,8 +120,10 @@ for img_path in image_files:
     # save image to dir 
     img_basename = os.path.basename(img_path)
     save_path = os.path.join(save_dir, img_basename)
-    cv2.imwrite(save_path, im_to_draw)
+    cv2.imshow("asd", im_to_draw)
+    cv2.waitKey(0)
     break
+    cv2.imwrite(save_path, im_to_draw)
 
 
 
