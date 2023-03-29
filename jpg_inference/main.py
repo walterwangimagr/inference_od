@@ -27,17 +27,6 @@ def make_save_path(src_dir, model_path):
     return save_path
 
 
-image_dir = "/home/walter/nas_cv/walter_stuff/modular_dataset/sonae_test/stack_bayer_white_balance/testset/"
-model_path = "/home/walter/nas_cv/walter_stuff/git/yolov5-master/yolo_n_modular/yolo5_nano_448/weights/no_nms_edgetpu.tflite"
-
-
-save_path = make_save_path(image_dir, model_path)
-
-image_files = glob.glob(f"{image_dir}/*.jpg")
-img_path = os.path.join(
-    image_dir, "1668743387444-modular-coral-v1-akl-0101:169.254.247.0.jpg")
-
-
 def load_image(img_path, img_size=448):
     '''
     Load Image and preprocessing, resize, pad, cvt color
@@ -75,6 +64,14 @@ def load_image(img_path, img_size=448):
 
 
 
+image_dir = "/home/walter/nas_cv/walter_stuff/modular_dataset/sonae_test/stack_bayer_white_balance/testset"
+model_path = "/home/walter/nas_cv/walter_stuff/git/yolov5-master/yolo_n_modular/yolo5_nano_448/weights/no_nms_edgetpu.tflite"
+
+
+save_dir = make_save_path(image_dir, model_path)
+
+image_files = glob.glob(f"{image_dir}/*.jpg")
+
 
 
 '''Inference'''
@@ -83,91 +80,48 @@ interpreter.allocate_tensors()
 input_detail = interpreter.get_input_details()[0]
 output_detail = interpreter.get_output_details()[0]
 
-# de-scale
+for img_path in image_files:
+    im_array, im_to_draw = load_image(img_path)
+    # de-scale
+    scale, zero_point = input_detail['quantization']
+    im_array = (im_array / scale - zero_point).astype(np.uint8)
 
-scale, zero_point = input_detail['quantization']
-im_array = (im_array / scale - zero_point).astype(np.uint8)
+    # inference
+    common.set_input(interpreter, im_array)
+    interpreter.invoke()
+    y = interpreter.get_tensor(output_detail['index'])
 
-# inference
-common.set_input(interpreter, im_array)
-interpreter.invoke()
-y = interpreter.get_tensor(output_detail['index'])
+    # de-scale
+    scale, zero_point = output_detail['quantization']
+    y = (y.astype(np.float32) - zero_point) * scale
+    # scale up to [w, h, w, h]
+    y[..., :4] *= [448, 448, 448, 448]
+    y = torch.tensor(y, device='cpu')
+    out = non_max_suppression(y, 0.5, 0.5,  multi_label=True, agnostic=False)
+    # out_np = out.numpy()
+    detections = out[0].numpy()
 
-# de-scale
-scale, zero_point = output_detail['quantization']
-y = (y.astype(np.float32) - zero_point) * scale
-print(y.shape)
-y[..., :4] *= [448, 448, 448, 448]
-y = torch.tensor(y, device='cpu')
-out = non_max_suppression(y, 0.5, 0.5,  multi_label=True, agnostic=False)
-# out_np = out.numpy()
-detections = out[0].numpy()
-
-for detection in detections:
-    xmin = int(detection[0])
-    ymin = int(detection[1])
-    xmax = int(detection[2])
-    ymax = int(detection[3])
-    confidence = detection[4]
-    id = detection[5]
-    print(xmin)
-    print(ymin)
-    print(xmax)
-    print(ymax)
-    print(confidence)
-    print(id)
-    if id == 0:
-        cv2.rectangle(im_resize_pad, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
-    if id == 1:
-        cv2.rectangle(im_resize_pad, (xmin, ymin), (xmax, ymax), (0, 0, 255), 2)
-    if id == 2:
-        cv2.rectangle(im_resize_pad, (xmin, ymin), (xmax, ymax), (255, 0, 0), 2)
+    # draw bbox
+    for detection in detections:
+        xmin = int(detection[0])
+        ymin = int(detection[1])
+        xmax = int(detection[2])
+        ymax = int(detection[3])
+        confidence = detection[4]
+        id = detection[5]
         
-cv2.imshow('result', im_resize_pad)
-cv2.waitKey(0)
-# resized_image.show()
+        if id == 0:
+            cv2.rectangle(im_to_draw, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
+        if id == 1:
+            cv2.rectangle(im_to_draw, (xmin, ymin), (xmax, ymax), (0, 0, 255), 2)
+        if id == 2:
+            cv2.rectangle(im_to_draw, (xmin, ymin), (xmax, ymax), (255, 0, 0), 2)
+    
+    # save image to dir 
+    img_basename = os.path.basename(img_path)
+    save_path = os.path.join(save_dir, img_basename)
+    cv2.imwrite(save_path, im_to_draw)
+    break
 
 
-# objects_count = 0
-# total_images_count = len(bayer_files)
-# for bayer_file in bayer_files:
-#     bayer_data = np.fromfile(bayer_file, np.uint8).reshape((1080, 1920, 1))
-#     img = bayer_to_rgb(bayer_file)
-#     # img.show()
 
-#     interpreter = edgetpu.make_interpreter(model_path)
-#     interpreter.allocate_tensors()
-#     common.set_input(interpreter, bayer_data)
-#     interpreter.invoke()
-#     objs = detect.get_objects(
-#         interpreter,
-#         score_threshold=0.5,
-#         image_scale=(2, 2))
-
-
-#     detections = parse_objs(objs)
-
-#     for detection in detections:
-#         xmin = detection[0]
-#         ymin = detection[1]
-#         xmax = detection[2]
-#         ymax = detection[3]
-#         confidence = detection[4]
-#         id = detection[5]
-#         if id == 0:
-#             ImageDraw.Draw(img).rectangle(
-#                 [(xmin, ymin), (xmax, ymax)], outline='green')
-#         if id == 1:
-#             ImageDraw.Draw(img).rectangle(
-#                 [(xmin, ymin), (xmax, ymax)], outline='red')
-#         if id == 2:
-#             ImageDraw.Draw(img).rectangle(
-#                 [(xmin, ymin), (xmax, ymax)], outline='yellow')
-
-#     base_name = os.path.basename(bayer_file)
-#     save_name = re.sub(".bayer_8", ".jpg", base_name)
-#     img.save(os.path.join(save_path, save_name))
-#     if len(detections) > 0:
-#         objects_count += 1
-
-# print(f"found {objects_count} objects in total {total_images_count} images")

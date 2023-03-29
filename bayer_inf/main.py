@@ -10,7 +10,7 @@ from pycoral.adapters import classify
 import glob
 import os
 import re
-
+import pprint
 
 def parse_objs(objs):
     """parse objs from 
@@ -43,7 +43,7 @@ def parse_objs(objs):
 
 bayer_dir = "/home/walter/nas_cv/walter_stuff/modular_dataset/sonae_test/bayer/testset"
 
-model_path = "/home/walter/nas_cv/walter_stuff/git/yolov5-master/yolo_n_modular/yolo5_nano_448/weights/no_nms_edgetpu.tflite"
+model_path = "/home/walter/nas_cv/object_detection/tensorflow/models/tpu_models/mobilenetv2_full_basket/walter_exp/default_bayer/auk_mul_classes_2/export/auk_mul_2703.tflite"
 
 dataset_name = os.path.basename(bayer_dir)
 model_name = os.path.basename(model_path)
@@ -66,6 +66,13 @@ for bayer_file in bayer_files:
     interpreter.allocate_tensors()
     common.set_input(interpreter, bayer_data)
     interpreter.invoke()
+
+    output_detail = interpreter.get_output_details()
+    pprint.pprint(output_detail)
+    value = interpreter.tensor(1)()
+    pprint.pprint(value)
+    break
+
     objs = detect.get_objects(
         interpreter,
         score_threshold=0.5,
