@@ -90,6 +90,7 @@ im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
 # turn cv2 image to np array and normalized
 im_array = np.asarray(im, dtype=np.float32)
 im_array /= 255
+im_array = np.expand_dims(im_array, axis=0)
 
 
 print(im_array.shape)
