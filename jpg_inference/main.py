@@ -7,13 +7,11 @@ from pycoral.adapters import common
 from pycoral.adapters import detect
 from bayer_to_RGB import bayer_to_rgb
 from pycoral.adapters import classify
-from data_util import pad_image
+from utils import pad_image, non_max_suppression
 import glob
 import os
 import re
-import pprint
-import platform
-
+import torch
 
 def parse_objs(objs):
     """parse objs from 
@@ -71,6 +69,7 @@ img_path = os.path.join(
 Image preprocessing
 '''
 im = cv2.imread(img_path)
+
 # original height and width
 o_height, o_width = im.shape[:2]
 # the edgetpu model require image to be a specify size
@@ -84,6 +83,9 @@ if ratio != 1:
                     int(o_height * ratio)), interpolation=interp)
 
 im, ratio, pad = pad_image(im, (448, 448), auto=False, scaleup=False)
+# to draw bbox and show
+im_resize_pad = im
+
 
 im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
 
@@ -91,6 +93,7 @@ im = cv2.cvtColor(im, cv2.COLOR_BGR2RGB)
 im_array = np.asarray(im, dtype=np.float32)
 im_array /= 255
 im_array = np.expand_dims(im_array, axis=0)
+im_array = np.ascontiguousarray(im_array)
 
 
 print(im_array.shape)
@@ -117,36 +120,33 @@ scale, zero_point = output_detail['quantization']
 y = (y.astype(np.float32) - zero_point) * scale
 print(y.shape)
 y[..., :4] *= [448, 448, 448, 448]
-# print(y)
+y = torch.tensor(y, device='cpu')
+out = non_max_suppression(y, 0.5, 0.5,  multi_label=True, agnostic=False)
+# out_np = out.numpy()
+detections = out[0].numpy()
 
-# output = interpreter.tensor(interpreter.get_output_details()[0]['index'])()
-
-# print(output.shape)
-# pprint.pprint(output_detail)
-# pprint.pprint(type(value))
-# objs = detect.get_objects(
-#     interpreter,
-#     score_threshold=0.5)
-
-# detections = parse_objs(objs)
-
-# for detection in detections:
-#     xmin = detection[0]
-#     ymin = detection[1]
-#     xmax = detection[2]
-#     ymax = detection[3]
-#     confidence = detection[4]
-#     id = detection[5]
-#     if id == 0:
-#         ImageDraw.Draw(resized_image).rectangle(
-#             [(xmin, ymin), (xmax, ymax)], outline='green')
-#     if id == 1:
-#         ImageDraw.Draw(resized_image).rectangle(
-#             [(xmin, ymin), (xmax, ymax)], outline='red')
-#     if id == 2:
-#         ImageDraw.Draw(resized_image).rectangle(
-#             [(xmin, ymin), (xmax, ymax)], outline='yellow')
-
+for detection in detections:
+    xmin = int(detection[0])
+    ymin = int(detection[1])
+    xmax = int(detection[2])
+    ymax = int(detection[3])
+    confidence = detection[4]
+    id = detection[5]
+    print(xmin)
+    print(ymin)
+    print(xmax)
+    print(ymax)
+    print(confidence)
+    print(id)
+    if id == 0:
+        cv2.rectangle(im_resize_pad, (xmin, ymin), (xmax, ymax), (0, 255, 0), 2)
+    if id == 1:
+        cv2.rectangle(im_resize_pad, (xmin, ymin), (xmax, ymax), (0, 0, 255), 2)
+    if id == 2:
+        cv2.rectangle(im_resize_pad, (xmin, ymin), (xmax, ymax), (255, 0, 0), 2)
+        
+cv2.imshow('result', im_resize_pad)
+cv2.waitKey(0)
 # resized_image.show()
 
 
