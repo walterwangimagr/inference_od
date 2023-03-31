@@ -69,6 +69,7 @@ model_path = "/home/walter/nas_cv/walter_stuff/git/yolov5-master/yolo_n_modular/
 save_dir = make_save_path(image_dir, model_path)
 
 image_files = glob.glob(f"{image_dir}/*.jpg")
+image_files = ["/home/walter/nas_cv/walter_stuff/modular_dataset/sonae_test/stack_bayer_white_balance/testset/1668742891117-modular-coral-v1-akl-0101:169.254.247.0.jpg"]
 
 
 
@@ -95,7 +96,7 @@ for img_path in image_files:
     # scale up to [w, h, w, h]
     y[..., :4] *= [448, 448, 448, 448]
     y = torch.tensor(y, device='cpu')
-    out = non_max_suppression(y, 0.5, 0.5,  multi_label=True, agnostic=False)
+    out = non_max_suppression(y, conf_thres=0.5, iou_thres=0.5,  multi_label=True, agnostic=False)
     # out_np = out.numpy()
     detections = out[0].numpy()
     detections = scale_coords(pad_im.shape, detections[:4], original_im.shape)

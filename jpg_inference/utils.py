@@ -75,8 +75,8 @@ def box_iou(box1, box2, eps=1e-7):
     return inter / (box_area(box1.T)[:, None] + box_area(box2.T) - inter + eps)
 
 def non_max_suppression(prediction,
-                        conf_thres=0.25,
-                        iou_thres=0.45,
+                        conf_thres=0.5,
+                        iou_thres=0.5,
                         classes=None,
                         agnostic=False,
                         multi_label=False,
@@ -101,9 +101,9 @@ def non_max_suppression(prediction,
     max_wh = 7680  # (pixels) maximum box width and height
     max_nms = 30000  # maximum number of boxes into torchvision.ops.nms()
     time_limit = 0.3 + 0.03 * bs  # seconds to quit after
-    redundant = True  # require redundant detections
+    redundant = False  # require redundant detections
     multi_label &= nc > 1  # multiple labels per box (adds 0.5ms/img)
-    merge = True  # use merge-NMS
+    merge = False  # use merge-NMS
 
     t = time.time()
     # output = [torch.zeros((0, 6), device=prediction.device)] * bs
@@ -161,14 +161,14 @@ def non_max_suppression(prediction,
         i = torchvision.ops.nms(boxes, scores, iou_thres)  # NMS
         if i.shape[0] > max_det:  # limit detections
             i = i[:max_det]
+
         if merge and (1 < n < 3E3):  # Merge NMS (boxes merged using weighted mean)
             # update boxes as boxes(i,4) = weights(i,n) * boxes(n,4)
             iou = box_iou(boxes[i], boxes) > iou_thres  # iou matrix
-            weights = iou * scores[None]  # box weights
+            weights = iou * scores[None]  # box weights scores[None] add one dimension (3,) -> (1,3)
             x[i, :4] = torch.mm(weights, x[:, :4]).float() / weights.sum(1, keepdim=True)  # merged boxes
             if redundant:
                 i = i[iou.sum(1) > 1]  # require redundancy
-
         output[xi] = x[i]
         
 
